@@ -24,3 +24,5 @@ model/
 .idea/*
 !.idea/scopes/*
 !.idea/watcherTasks.xml
+
+__dbcache__
