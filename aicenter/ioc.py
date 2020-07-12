@@ -40,10 +40,9 @@ class AiCenter(models.Model):
 
 
 class AiCenterApp(object):
-    def __init__(self, device, model=None, server=None, camera=None, scale=4):
+    def __init__(self, device, model=None, server=None, camera=None):
         logger.info(f'device={device!r}, model={model!r}, server={server!r}, camera={camera!r}')
         self.running = False
-        self.scale = scale
         self.ioc = AiCenter(device, callbacks=self)
         self.key = f'{camera}:JPG'
         self.server = server
