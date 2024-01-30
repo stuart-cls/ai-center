@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 import threading
 import time
@@ -12,11 +14,6 @@ warnings.filterwarnings("ignore")
 from enum import Enum
 from collections import namedtuple
 
-from devioc import models, log
-import gepics
-
-logger = log.get_module_logger('aicenter')
-
 # Result Type
 Result = namedtuple('Result', 'type x y w h score')
 
@@ -27,22 +24,10 @@ class StatusType(Enum):
     VALID, INVALID = range(2)
 
 
-# Create your models here. Modify the example below as appropriate
-class AiCenter(models.Model):
-    x = models.Integer('x', default=0, desc='X')
-    y = models.Integer('y', default=0, desc='Y')
-    w = models.Integer('w', default=0, desc='Width')
-    h = models.Integer('h', default=0, desc='Height')
-    score = models.Float('score', default=0.0, desc='Reliability')
-    label = models.String('label', default='', desc='Object Type')
-    status = models.Enum('status', choices=StatusType, desc="Status")
-
-
 class AiCenterApp(object):
-    def __init__(self, device, model=None, server=None, camera=None):
-        logger.info(f'device={device!r}, model={model!r}, server={server!r}, camera={camera!r}')
+    def __init__(self, model=None, server=None, camera=None):
+        print(f'model={model!r}, server={server!r}, camera={camera!r}')
         self.running = False
-        self.ioc = AiCenter(device, callbacks=self)
         self.key = f'{camera}:JPG'
         self.server = server
         self.video = None
@@ -63,14 +48,6 @@ class AiCenterApp(object):
         self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA_FP16)
         self.layers = self.net.getLayerNames()
         self.output_layers = self.net.getUnconnectedOutLayersNames()
-        # self.output_layers = [self.layers[i[0] - 1] for i in self.net.getUnconnectedOutLayers()]
-
-        self.start_monitor()
-
-    def start_monitor(self):
-        self.running = False
-        monitor_thread = threading.Thread(target=self.video_monitor, daemon=True)
-        monitor_thread.start()
 
     def get_frame(self):
         try:
@@ -108,38 +85,35 @@ class AiCenterApp(object):
             x, y, w, h = bboxes[index]
             score = confidences[index]
             label = self.darknet['names'][class_ids[index]]
+            print(f'{label} found at: {x} {y} [{w} {h}], prob={score}')
+            return Result(label, x, y, w, h, score)
 
-            self.ioc.status.put(StatusType.VALID.value)
-            self.ioc.x.put(x)
-            self.ioc.y.put(y)
-            self.ioc.w.put(w)
-            self.ioc.h.put(h)
-            self.ioc.label.put(label)
-            self.ioc.score.put(score)
-
-            logger.debug(f'{label} found at: {x} {y} [{w} {h}], prob={score}')
-        else:
-            self.ioc.status.put(StatusType.INVALID.value)
-            self.ioc.score.put(0.0)
-
-    def video_monitor(self):
-        gepics.threads_init()
+    def run(self, scale=0.5):
         self.running = True
         self.video = redis.Redis(host=self.server, port=6379, db=0)
         while self.running:
-            frame = self.get_frame()
+            raw_frame = self.get_frame()
+            frame = cv2.resize(raw_frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
             if frame is not None:
                 height, width = frame.shape[:2]
                 blob = cv2.dnn.blobFromImage(frame, 0.00392, (416, 416), swapRB=True, crop=False)
                 self.net.setInput(blob)
                 outputs = self.net.forward(self.output_layers)
-                self.process_results(width, height, outputs)
-            else:
-                self.ioc.status.put(StatusType.INVALID.value)
-                self.ioc.score.put(0.0)
-            time.sleep(0.001)
+                res = self.process_results(width, height, outputs)
+                if res is not None:
+                    cv2.rectangle(frame, (res.x, res.y), (res.x+res.w, res.y+res.h), (255, 0, 0), 1)
+                    cv2.putText(frame, f'{res.type}:{res.score:0.2f}', (res.x, res.y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                                (255, 0, 0), 1, cv2.LINE_AA)
+                cv2.imshow('Frame', frame)
+
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
 
     def shutdown(self):
         # needed for proper IOC shutdown
         self.running = False
-        self.ioc.shutdown()
+
+
+if __name__ == '__main__':
+    app = AiCenterApp(model="/cmcf_apps/ai-center/model", server="IOC1608-304.clsi.ca", camera="0030180F06E5")
+    app.run()
