@@ -15,12 +15,13 @@ from collections import namedtuple
 from devioc import models, log
 import gepics
 
+from . import utils
 logger = log.get_module_logger('aicenter')
 
 # Result Type
 Result = namedtuple('Result', 'type x y w h score')
 
-CONF_THRESH, NMS_THRESH = 0.5, 0.5
+CONF_THRESH, NMS_THRESH = 0.25, 0.25
 
 
 class StatusType(Enum):
@@ -93,7 +94,6 @@ class AiCenterApp(object):
 
                 if confidence > CONF_THRESH:
                     cx, cy, w, h = (detection[0:4] * numpy.array([width, height, width, height])).astype(int)
-
                     x = int(cx - w / 2)
                     y = int(cy - h / 2)
 
@@ -110,17 +110,24 @@ class AiCenterApp(object):
             label = self.darknet['names'][class_ids[index]]
 
             self.ioc.status.put(StatusType.VALID.value)
-            self.ioc.x.put(x)
-            self.ioc.y.put(y)
-            self.ioc.w.put(w)
-            self.ioc.h.put(h)
-            self.ioc.label.put(label)
-            self.ioc.score.put(score)
-
             logger.debug(f'{label} found at: {x} {y} [{w} {h}], prob={score}')
+            return Result(label, x, y, w, h, score)
         else:
             self.ioc.status.put(StatusType.INVALID.value)
             self.ioc.score.put(0.0)
+
+    def process_features(self, frame):
+        """
+        Process frame using traditional image processing techniques to detect loop
+        :param frame: Frame to process
+        :return: True if loop found
+        """
+        info = utils.find_loop(frame)
+        if info['found']:
+            logger.debug(
+                f'Loop found at: {info["loop-x"]} {info["loop-y"]} [{info["loop-width"]} {info["loop-height"]}]'
+            )
+            return Result('loop', info['loop-x'], info['loop-y'], info['loop-width'], info['loop-height'], 0.5)
 
     def video_monitor(self):
         gepics.threads_init()
@@ -133,7 +140,22 @@ class AiCenterApp(object):
                 blob = cv2.dnn.blobFromImage(frame, 0.00392, (416, 416), swapRB=True, crop=False)
                 self.net.setInput(blob)
                 outputs = self.net.forward(self.output_layers)
-                self.process_results(width, height, outputs)
+                result = self.process_results(width, height, outputs)
+                if not result:
+                    # attempt regular image processing
+                    result = self.process_features(frame)
+
+                if result:
+                    self.ioc.x.put(result.x)
+                    self.ioc.y.put(result.y)
+                    self.ioc.w.put(result.w)
+                    self.ioc.h.put(result.h)
+                    self.ioc.label.put(result.type)
+                    self.ioc.score.put(result.score)
+                    self.ioc.status.put(StatusType.VALID.value)
+                else:
+                    self.ioc.status.put(StatusType.INVALID.value)
+                    self.ioc.score.put(0.0)
             else:
                 self.ioc.status.put(StatusType.INVALID.value)
                 self.ioc.score.put(0.0)
