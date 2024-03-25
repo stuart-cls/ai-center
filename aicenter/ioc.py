@@ -102,16 +102,16 @@ class AiCenterApp(object):
                     class_ids.append(int(class_id))
 
         if bboxes:
+            results = []
             indices = cv2.dnn.NMSBoxes(bboxes, confidences, CONF_THRESH, NMS_THRESH).flatten()
-            scores = [confidences[index] for index in indices]
-            index = indices[numpy.argmax(scores)]
-            x, y, w, h = bboxes[index]
-            score = confidences[index]
-            label = self.darknet['names'][class_ids[index]]
-
+            nms_boxes = [(bboxes[i], confidences[i], class_ids[i]) for i in indices]
+            for bbox, score, class_id in nms_boxes:
+                x, y, w, h = bbox
+                label = self.darknet['names'][class_id]
+                logger.debug(f'{label} found at: {x} {y} [{w} {h}], prob={score}')
+                results.append(Result(label, x, y, w, h, score))
             self.ioc.status.put(StatusType.VALID.value)
-            logger.debug(f'{label} found at: {x} {y} [{w} {h}], prob={score}')
-            return Result(label, x, y, w, h, score)
+            return results
         else:
             self.ioc.status.put(StatusType.INVALID.value)
             self.ioc.score.put(0.0)
@@ -127,7 +127,7 @@ class AiCenterApp(object):
             logger.debug(
                 f'Loop found at: {info["loop-x"]} {info["loop-y"]} [{info["loop-width"]} {info["loop-height"]}]'
             )
-            return Result('loop', info['loop-x'], info['loop-y'], info['loop-width'], info['loop-height'], 0.5)
+            return [Result('loop', info['loop-x'], info['loop-y'], info['loop-width'], info['loop-height'], 0.5)]
 
     def video_monitor(self):
         gepics.threads_init()
@@ -140,19 +140,21 @@ class AiCenterApp(object):
                 blob = cv2.dnn.blobFromImage(frame, 0.00392, (416, 416), swapRB=True, crop=False)
                 self.net.setInput(blob)
                 outputs = self.net.forward(self.output_layers)
-                result = self.process_results(width, height, outputs)
-                if not result:
+                results = self.process_results(width, height, outputs)
+                if not results:
                     # attempt regular image processing
                     result = self.process_features(frame)
 
-                if result:
-                    self.ioc.x.put(result.x)
-                    self.ioc.y.put(result.y)
-                    self.ioc.w.put(result.w)
-                    self.ioc.h.put(result.h)
-                    self.ioc.label.put(result.type)
-                    self.ioc.score.put(result.score)
-                    self.ioc.status.put(StatusType.VALID.value)
+                if results:
+                    for result in results:
+                        if result.type == "loop":
+                            self.ioc.x.put(result.x)
+                            self.ioc.y.put(result.y)
+                            self.ioc.w.put(result.w)
+                            self.ioc.h.put(result.h)
+                            self.ioc.label.put(result.type)
+                            self.ioc.score.put(result.score)
+                            self.ioc.status.put(StatusType.VALID.value)
                 else:
                     self.ioc.status.put(StatusType.INVALID.value)
                     self.ioc.score.put(0.0)
