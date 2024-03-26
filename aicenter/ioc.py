@@ -30,6 +30,7 @@ class StatusType(Enum):
 
 # Create your models here. Modify the example below as appropriate
 class AiCenter(models.Model):
+    # Loop bounding box
     x = models.Integer('x', default=0, desc='X')
     y = models.Integer('y', default=0, desc='Y')
     w = models.Integer('w', default=0, desc='Width')
@@ -37,6 +38,11 @@ class AiCenter(models.Model):
     score = models.Float('score', default=0.0, desc='Reliability')
     label = models.String('label', default='', desc='Object Type')
     status = models.Enum('status', choices=StatusType, desc="Status")
+    # Many-object centers
+    objects_x = models.Array('objects.x', type=int, desc="Objects X")
+    objects_y = models.Array('objects.y', type=int, desc="Objects Y")
+    # objects_type = models.Array('objects.type', type=int, desc="Objects Type")
+    objects_score = models.Array('objects.score', type=float, desc="Objects Score")
 
 
 class AiCenterApp(object):
@@ -158,6 +164,17 @@ class AiCenterApp(object):
                         self.ioc.label.put(result.type)
                         self.ioc.score.put(result.score)
                         self.ioc.status.put(StatusType.VALID.value)
+                    xs = [], ys = [], scores = []
+                    for label, reslist in results.values():
+                        if label == 'loop':
+                            continue
+                        xs += [result.x + int(result.w / 2) for result in reslist]
+                        ys += [result.y + int(result.h / 2) for result in reslist]
+                        scores += [result.score for result in reslist]
+                    if xs:
+                        self.ioc.objects_x.put(numpy.array(xs))
+                        self.ioc.objects_y.put(numpy.array(ys))
+                        self.ioc.objects_score.put(numpy.array(scores))
                 else:
                     self.ioc.status.put(StatusType.INVALID.value)
                     self.ioc.score.put(0.0)
