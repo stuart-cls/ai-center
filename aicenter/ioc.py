@@ -9,7 +9,7 @@ import redis
 
 warnings.filterwarnings("ignore")
 
-from enum import Enum
+from enum import IntEnum
 from collections import namedtuple, defaultdict
 
 from devioc import models, log
@@ -24,7 +24,7 @@ Result = namedtuple('Result', 'type x y w h score')
 CONF_THRESH, NMS_THRESH = 0.25, 0.25
 
 
-class StatusType(Enum):
+class StatusType(IntEnum):
     VALID, INVALID = range(2)
 
 
@@ -39,11 +39,11 @@ class AiCenter(models.Model):
     label = models.String('label', default='', desc='Object Type')
     status = models.Enum('status', choices=StatusType, desc="Status")
     # Many-object centers
-    objects_x = models.Array('objects.x', type=int, desc="Objects X")
-    objects_y = models.Array('objects.y', type=int, desc="Objects Y")
-    # objects_type = models.Array('objects.type', type=int, desc="Objects Type")
-    objects_score = models.Array('objects.score', type=float, desc="Objects Score")
-    objects_valid = models.Integer('objects.valid', default=0, desc="Valid objects")
+    objects_x = models.Array('objects:x', type=int, desc="Objects X")
+    objects_y = models.Array('objects:y', type=int, desc="Objects Y")
+    # objects_type = models.Array('objects:type', type=int, desc="Objects Type")
+    objects_score = models.Array('objects:score', type=float, desc="Objects Score")
+    objects_valid = models.Integer('objects:valid', default=0, desc="Valid objects")
 
 
 class AiCenterApp(object):
@@ -119,10 +119,10 @@ class AiCenterApp(object):
                 results[label].append(Result(label, x, y, w, h, score))
             for label, llist in results.items():
                 results[label] = sorted(llist, key=lambda result: result.score, reverse=True)
-            self.ioc.status.put(StatusType.VALID.value)
+            self.ioc.status.put(StatusType.VALID)
             return results
         else:
-            self.ioc.status.put(StatusType.INVALID.value)
+            self.ioc.status.put(StatusType.INVALID)
             self.ioc.score.put(0.0)
 
     @staticmethod
@@ -165,7 +165,7 @@ class AiCenterApp(object):
                         self.ioc.h.put(result.h)
                         self.ioc.label.put(result.type)
                         self.ioc.score.put(result.score)
-                        self.ioc.status.put(StatusType.VALID.value)
+                        self.ioc.status.put(StatusType.VALID)
                     xs = [], ys = [], scores = []
                     for label, reslist in results.values():
                         if label == 'loop':
@@ -181,10 +181,10 @@ class AiCenterApp(object):
                     else:
                         self.ioc.objects_valid.put(0)
                 else:
-                    self.ioc.status.put(StatusType.INVALID.value)
+                    self.ioc.status.put(StatusType.INVALID)
                     self.ioc.score.put(0.0)
             else:
-                self.ioc.status.put(StatusType.INVALID.value)
+                self.ioc.status.put(StatusType.INVALID)
                 self.ioc.score.put(0.0)
             time.sleep(0.001)
 
