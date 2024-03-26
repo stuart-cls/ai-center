@@ -10,7 +10,7 @@ import redis
 warnings.filterwarnings("ignore")
 
 from enum import Enum
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 
 from devioc import models, log
 import gepics
@@ -30,6 +30,7 @@ class StatusType(Enum):
 
 # Create your models here. Modify the example below as appropriate
 class AiCenter(models.Model):
+    # Loop bounding box
     x = models.Integer('x', default=0, desc='X')
     y = models.Integer('y', default=0, desc='Y')
     w = models.Integer('w', default=0, desc='Width')
@@ -37,6 +38,12 @@ class AiCenter(models.Model):
     score = models.Float('score', default=0.0, desc='Reliability')
     label = models.String('label', default='', desc='Object Type')
     status = models.Enum('status', choices=StatusType, desc="Status")
+    # Many-object centers
+    objects_x = models.Array('objects.x', type=int, desc="Objects X")
+    objects_y = models.Array('objects.y', type=int, desc="Objects Y")
+    # objects_type = models.Array('objects.type', type=int, desc="Objects Type")
+    objects_score = models.Array('objects.score', type=float, desc="Objects Score")
+    objects_valid = models.Integer('objects.valid', default=0, desc="Valid objects")
 
 
 class AiCenterApp(object):
@@ -102,16 +109,18 @@ class AiCenterApp(object):
                     class_ids.append(int(class_id))
 
         if bboxes:
+            results = defaultdict(list)
             indices = cv2.dnn.NMSBoxes(bboxes, confidences, CONF_THRESH, NMS_THRESH).flatten()
-            scores = [confidences[index] for index in indices]
-            index = indices[numpy.argmax(scores)]
-            x, y, w, h = bboxes[index]
-            score = confidences[index]
-            label = self.darknet['names'][class_ids[index]]
-
+            nms_boxes = [(bboxes[i], confidences[i], class_ids[i]) for i in indices]
+            for bbox, score, class_id in nms_boxes:
+                x, y, w, h = bbox
+                label = self.darknet['names'][class_id]
+                logger.debug(f'{label} found at: {x} {y} [{w} {h}], prob={score}')
+                results[label].append(Result(label, x, y, w, h, score))
+            for label, llist in results.items():
+                results[label] = sorted(llist, key=lambda result: result.score, reverse=True)
             self.ioc.status.put(StatusType.VALID.value)
-            logger.debug(f'{label} found at: {x} {y} [{w} {h}], prob={score}')
-            return Result(label, x, y, w, h, score)
+            return results
         else:
             self.ioc.status.put(StatusType.INVALID.value)
             self.ioc.score.put(0.0)
@@ -127,7 +136,7 @@ class AiCenterApp(object):
             logger.debug(
                 f'Loop found at: {info["loop-x"]} {info["loop-y"]} [{info["loop-width"]} {info["loop-height"]}]'
             )
-            return Result('loop', info['loop-x'], info['loop-y'], info['loop-width'], info['loop-height'], 0.5)
+            return {'loop': Result('loop', info['loop-x'], info['loop-y'], info['loop-width'], info['loop-height'], 0.5)}
 
     def video_monitor(self):
         gepics.threads_init()
@@ -140,19 +149,36 @@ class AiCenterApp(object):
                 blob = cv2.dnn.blobFromImage(frame, 0.00392, (416, 416), swapRB=True, crop=False)
                 self.net.setInput(blob)
                 outputs = self.net.forward(self.output_layers)
-                result = self.process_results(width, height, outputs)
-                if not result:
+                results = self.process_results(width, height, outputs)
+                if not results:
                     # attempt regular image processing
-                    result = self.process_features(frame)
+                    results = self.process_features(frame)
 
-                if result:
-                    self.ioc.x.put(result.x)
-                    self.ioc.y.put(result.y)
-                    self.ioc.w.put(result.w)
-                    self.ioc.h.put(result.h)
-                    self.ioc.label.put(result.type)
-                    self.ioc.score.put(result.score)
-                    self.ioc.status.put(StatusType.VALID.value)
+                if results:
+                    if 'loop' in results:
+                        # Only return highest-scoring loop
+                        result = results['loop'][0]
+                        self.ioc.x.put(result.x)
+                        self.ioc.y.put(result.y)
+                        self.ioc.w.put(result.w)
+                        self.ioc.h.put(result.h)
+                        self.ioc.label.put(result.type)
+                        self.ioc.score.put(result.score)
+                        self.ioc.status.put(StatusType.VALID.value)
+                    xs = [], ys = [], scores = []
+                    for label, reslist in results.values():
+                        if label == 'loop':
+                            continue
+                        xs += [result.x + int(result.w / 2) for result in reslist]
+                        ys += [result.y + int(result.h / 2) for result in reslist]
+                        scores += [result.score for result in reslist]
+                    if xs:
+                        self.ioc.objects_x.put(numpy.array(xs))
+                        self.ioc.objects_y.put(numpy.array(ys))
+                        self.ioc.objects_score.put(numpy.array(scores))
+                        self.ioc.objects_valid.put(len(xs))
+                    else:
+                        self.ioc.objects_valid.put(0)
                 else:
                     self.ioc.status.put(StatusType.INVALID.value)
                     self.ioc.score.put(0.0)
