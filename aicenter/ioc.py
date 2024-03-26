@@ -43,6 +43,7 @@ class AiCenter(models.Model):
     objects_y = models.Array('objects.y', type=int, desc="Objects Y")
     # objects_type = models.Array('objects.type', type=int, desc="Objects Type")
     objects_score = models.Array('objects.score', type=float, desc="Objects Score")
+    objects_valid = models.Integer('objects.valid', default=0, desc="Valid objects")
 
 
 class AiCenterApp(object):
@@ -175,6 +176,9 @@ class AiCenterApp(object):
                         self.ioc.objects_x.put(numpy.array(xs))
                         self.ioc.objects_y.put(numpy.array(ys))
                         self.ioc.objects_score.put(numpy.array(scores))
+                        self.ioc.objects_valid.put(len(xs))
+                    else:
+                        self.ioc.objects_valid.put(0)
                 else:
                     self.ioc.status.put(StatusType.INVALID.value)
                     self.ioc.score.put(0.0)
