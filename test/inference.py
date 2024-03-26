@@ -88,14 +88,15 @@ class AiCenterApp(object):
             print(f'{label} found at: {x} {y} [{w} {h}], prob={score}')
             return Result(label, x, y, w, h, score)
 
-    def process_features(self, frame):
+    @staticmethod
+    def process_features(frame):
         """
         Process frame using traditional image processing techniques to detect loop
         :param frame: Frame to process
         :return: True if loop found
         """
         info = find_loop(frame)
-        if info['found']:
+        if "loop-x" in info:
             print(f'Loop found at: {info["loop-x"]} {info["loop-y"]} [{info["loop-width"]} {info["loop-height"]}]')
             return Result('loop', info['loop-x'], info['loop-y'], info['loop-width'], info['loop-height'], 1.0)
 

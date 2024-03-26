@@ -125,14 +125,15 @@ class AiCenterApp(object):
             self.ioc.status.put(StatusType.INVALID.value)
             self.ioc.score.put(0.0)
 
-    def process_features(self, frame):
+    @staticmethod
+    def process_features(frame):
         """
         Process frame using traditional image processing techniques to detect loop
         :param frame: Frame to process
         :return: True if loop found
         """
         info = utils.find_loop(frame)
-        if info['found']:
+        if 'loop-x' in info:
             logger.debug(
                 f'Loop found at: {info["loop-x"]} {info["loop-y"]} [{info["loop-width"]} {info["loop-height"]}]'
             )
