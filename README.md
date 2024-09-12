@@ -17,3 +17,21 @@ In order to use "aicenter", you need have a functioning install of python-devioc
 
 You can manage the instance daemon through procServ, by telneting to the configured port. 
 
+OpenCV
+======
+
+For best performance, a version of `python-opencv` compiled with support for CUDA and cuDNN along
+with a compatible GPU should be used.
+
+Testing
+=======
+
+The `test/inference.py` file can be used to test the inference / model performance without running
+a full IOC application.
+
+Create an environment with `requirements-test.txt` and install `aicenter` without dependencies:
+
+```
+pip install -r requirements-test.txt
+pip install . --no-deps
+```
