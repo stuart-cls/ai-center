@@ -7,7 +7,7 @@ import cv2
 import numpy
 import redis
 
-from aicenter.ioc import Result
+from aicenter import Result
 from aicenter.utils import find_loop
 
 warnings.filterwarnings("ignore")

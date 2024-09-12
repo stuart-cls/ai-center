@@ -10,16 +10,14 @@ import redis
 warnings.filterwarnings("ignore")
 
 from enum import IntEnum
-from collections import namedtuple, defaultdict
+from collections import defaultdict
 
 from devioc import models, log
 import gepics
 
-from . import utils
-logger = log.get_module_logger('aicenter')
+from . import utils, Result
 
-# Result Type
-Result = namedtuple('Result', 'type x y w h score')
+logger = log.get_module_logger('aicenter')
 
 CONF_THRESH, NMS_THRESH = 0.25, 0.25
 
