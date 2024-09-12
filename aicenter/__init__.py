@@ -96,7 +96,7 @@ class AiCenter:
             logger.debug(
                 f'Loop found at: {info["loop-x"]} {info["loop-y"]} [{info["loop-width"]} {info["loop-height"]}]'
             )
-            return {'loop': Result('loop', info['loop-x'], info['loop-y'], info['loop-width'], info['loop-height'], 0.5)}
+            return {'loop': [Result('loop', info['loop-x'], info['loop-y'], info['loop-width'], info['loop-height'], 0.5)]}
 
     def process_frame(self, frame):
         if frame is not None:

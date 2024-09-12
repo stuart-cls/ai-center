@@ -73,7 +73,7 @@ class AiCenterApp(AiCenter):
                     self.ioc.score.put(result.score)
                     self.ioc.status.put(StatusType.VALID)
                 xs = [], ys = [], scores = []
-                for label, reslist in results.values():
+                for label, reslist in results.items():
                     if label == 'loop':
                         continue
                     xs += [result.x + int(result.w / 2) for result in reslist]
