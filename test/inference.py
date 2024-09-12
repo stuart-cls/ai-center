@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import argparse
 import warnings
 
 import cv2
@@ -39,5 +39,13 @@ class AiCenterApp(AiCenter):
 
 
 if __name__ == '__main__':
-    app = AiCenterApp(model="/cmcf_apps/ai-centering/model", server="IOC1608-304.clsi.ca", camera="0030180F06E5")
+    parser = argparse.ArgumentParser(description='Annotate a video stream using a pre-trained object detection model')
+    parser.add_argument('--model', type=str, help='Path to model directory',
+                        default="/cmcf_apps/ai-centering/model")
+    parser.add_argument('--server', type=str, help='Redis camera server address',
+                        default="IOC1608-304.clsi.ca")
+    parser.add_argument('--camera', type=str, help='Redis camera ID',
+                        default="0030180F06E5")
+    args = parser.parse_args()
+    app = AiCenterApp(model=args.model, server=args.server, camera=args.camera)
     app.run()
