@@ -12,6 +12,8 @@ from enum import IntEnum
 from devioc import models, log
 import gepics
 
+from . import AiCenter
+
 logger = log.get_module_logger('aicenter')
 
 CONF_THRESH, NMS_THRESH = 0.25, 0.25
@@ -22,7 +24,7 @@ class StatusType(IntEnum):
 
 
 # Create your models here. Modify the example below as appropriate
-class AiCenter(models.Model):
+class AiCenterModel(models.Model):
     # Loop bounding box
     x = models.Integer('x', default=0, desc='X')
     y = models.Integer('y', default=0, desc='Y')
@@ -44,7 +46,7 @@ class AiCenterApp(AiCenter):
         super().__init__(model=model, server=server, camera=camera)
         logger.info(f'device={device!r}, model={model!r}, server={server!r}, camera={camera!r}')
         self.running = False
-        self.ioc = AiCenter(device, callbacks=self)
+        self.ioc = AiCenterModel(device, callbacks=self)
 
         self.start_monitor()
 
