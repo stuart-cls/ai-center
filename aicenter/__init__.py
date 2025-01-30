@@ -1,10 +1,10 @@
-import os
 from collections import namedtuple, defaultdict
 
 import cv2
 import numpy
 
 from aicenter import utils
+from aicenter.net import load_model
 
 try:
     from devioc import log
@@ -28,20 +28,11 @@ class AiCenter:
         self.model_path = model
 
         # prepare neural network for detection
-        with open(os.path.join(model, 'yolov3.names'), 'r', encoding='utf-8') as fobj:
-            names = [line.strip() for line in fobj.readlines()]
-
-        self.darknet = {
-            'weights': os.path.join(model, 'yolov3.weights'),
-            'config': os.path.join(model, 'yolov3.cfg'),
-            'names': names,
-        }
-
-        self.net = cv2.dnn.readNetFromDarknet(self.darknet['config'], self.darknet['weights'])
-        self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
-        self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA_FP16)
-        self.layers = self.net.getLayerNames()
-        self.output_layers = self.net.getUnconnectedOutLayersNames()
+        self.net = load_model(model, CONF_THRESH)
+        self.net.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
+        self.net.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA_FP16)
+        self.layers = self.net.net.getLayerNames()
+        self.output_layers = self.net.net.getUnconnectedOutLayersNames()
 
     def get_frame(self):
         try:
@@ -57,19 +48,10 @@ class AiCenter:
     def process_results(self, width, height, outputs):
         class_ids, confidences, bboxes = [], [], []
         for output in outputs:
-            for detection in output:
-                scores = detection[5:]
-                class_id = numpy.argmax(scores)
-                confidence = scores[class_id]
-
-                if confidence > CONF_THRESH:
-                    cx, cy, w, h = (detection[0:4] * numpy.array([width, height, width, height])).astype(int)
-                    x = int(cx - w / 2)
-                    y = int(cy - h / 2)
-
-                    bboxes.append([x, y, int(w), int(h)])
-                    confidences.append(float(confidence))
-                    class_ids.append(int(class_id))
+            for bb, conf, cid in self.net.parse_output(output, width=width, height=height):
+                bboxes.append(bb)
+                confidences.append(conf)
+                class_ids.append(cid)
 
         if bboxes:
             results = defaultdict(list)
@@ -77,7 +59,7 @@ class AiCenter:
             nms_boxes = [(bboxes[i], confidences[i], class_ids[i]) for i in indices]
             for bbox, score, class_id in nms_boxes:
                 x, y, w, h = bbox
-                label = self.darknet['names'][class_id]
+                label = self.net.names[class_id]
                 logger.debug(f'{label} found at: {x} {y} [{w} {h}], prob={score}')
                 results[label].append(Result(label, x, y, w, h, score))
             for label, llist in results.items():
@@ -101,9 +83,9 @@ class AiCenter:
     def process_frame(self, frame):
         if frame is not None:
             height, width = frame.shape[:2]
-            blob = cv2.dnn.blobFromImage(frame, 0.00392, (416, 416), swapRB=True, crop=False)
-            self.net.setInput(blob)
-            outputs = self.net.forward(self.output_layers)
+            blob = cv2.dnn.blobFromImage(frame, 0.00392, (self.net.size, self.net.size), swapRB=True, crop=False)
+            self.net.net.setInput(blob)
+            outputs = self.net.net.forward(self.output_layers)
             results = self.process_results(width, height, outputs)
             if not results:
                 # attempt regular image processing
