@@ -5,6 +5,7 @@ import numpy
 
 from aicenter import utils
 from aicenter.net import load_model
+from aicenter.sam import TrackingSAM
 
 try:
     from devioc import log
@@ -34,6 +35,8 @@ class AiCenter:
         self.net.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA_FP16)
         self.layers = self.net.net.getLayerNames()
         self.output_layers = self.net.net.getUnconnectedOutLayersNames()
+        # setup SAM2 for segmentation
+        self.sam = TrackingSAM()
 
     def get_frame(self):
         try:
