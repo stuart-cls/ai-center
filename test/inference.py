@@ -7,9 +7,11 @@ import time
 import warnings
 
 import cv2
+import numpy
 import redis
 
 from aicenter import AiCenter
+from aicenter.sam import show_masks
 
 warnings.filterwarnings("ignore")
 logger = logging.getLogger('aicenter')
@@ -40,6 +42,17 @@ class AiCenterApp(AiCenter):
                         cv2.rectangle(frame, (res.x, res.y), (res.x+res.w, res.y+res.h), (255, 0, 0), 1)
                         cv2.putText(frame, f'{res.type}:{res.score:0.2f}', (res.x, res.y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                                     (255, 0, 0), 1, cv2.LINE_AA)
+                    if label == 'crystal':
+                        if reslist and self.sam.predictor:
+                            xyxy = [[r.x, r.y, r.x + r.w, r.y + r.h] for r in reslist]
+                            input_boxes = numpy.atleast_2d(numpy.array(xyxy))
+                            height, width = frame.shape[:2]
+                            norm = numpy.array([width, height, width, height])
+                            masks, scores = self.sam.predict_input_boxes(frame, input_boxes, norm)
+                            frame = show_masks(frame, masks)
+                        elif self.sam.init:
+                            masks, scores = self.sam.predict(frame)
+                            frame = show_masks(frame, masks)
 
             cv2.imshow(os.path.split(self.model_path)[-1], frame)
 
