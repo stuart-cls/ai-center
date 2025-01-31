@@ -41,7 +41,7 @@ class AiCenterApp(AiCenter):
                         cv2.putText(frame, f'{res.type}:{res.score:0.2f}', (res.x, res.y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                                     (255, 0, 0), 1, cv2.LINE_AA)
 
-            cv2.imshow('Frame', frame)
+            cv2.imshow(os.path.split(self.model_path)[-1], frame)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
