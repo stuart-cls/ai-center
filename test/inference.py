@@ -48,11 +48,10 @@ class AiCenterApp(AiCenter):
                             input_boxes = numpy.atleast_2d(numpy.array(xyxy))
                             height, width = frame.shape[:2]
                             norm = numpy.array([width, height, width, height])
-                            masks, scores = self.sam.predict_input_boxes(frame, input_boxes, norm)
-                            frame = show_masks(frame, masks)
-                        elif self.sam.init:
-                            masks, scores = self.sam.predict(frame)
-                            frame = show_masks(frame, masks)
+                            self.sam.track_input_boxes(frame, input_boxes, norm)
+            if self.sam.init:
+                masks, scores = self.sam.predict(frame)
+                frame = show_masks(frame, masks)
 
             cv2.imshow(os.path.split(self.model_path)[-1], frame)
 

@@ -81,12 +81,12 @@ class TrackingSAM(SAM2):
 
         return sammodel
 
-    def predict_input_boxes(self, image: numpy.ndarray, input_boxes: numpy.ndarray, norm=None):
+    def track_input_boxes(self, image: numpy.ndarray, input_boxes: numpy.ndarray, norm=None):
         if not self.init:
             self.last_input_boxes.appendleft(input_boxes)
             if (not (len(self.last_input_boxes) == self.last_input_boxes.maxlen) or
                     not all(numpy.allclose(input_boxes, a, rtol=0.1) for a in self.last_input_boxes)):
-                return [], []
+                return
             self.init = True
             # TODO multiple boxes
             if norm is not None:
@@ -100,8 +100,6 @@ class TrackingSAM(SAM2):
             self.tracked_objects.append(
                 TrackedObject(prompt_memory_encodings=[init_mem],
                               prompt_object_pointers=[init_ptr]))
-
-        return self.predict(image)
 
     def predict(self, image: numpy.ndarray):
         # Select current object
