@@ -134,7 +134,7 @@ class TrackingSAM(SAM2):
 
 def show_masks(image, masks):
 
-    def show_mask(image, mask, random_color=False, borders=True, centroid=True):
+    def show_mask(image, mask, random_color=False, borders=True, centroid=True, bbox=True):
         if random_color:
             rng = numpy.random.default_rng()
             color = rng.integers(0, 255, size=3, dtype=numpy.uint8)
@@ -143,15 +143,16 @@ def show_masks(image, masks):
         h, w = mask.shape[-2:]
         mask = mask.astype(numpy.uint8)
         mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
-        if borders or centroid:
+        if borders or centroid or bbox:
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+            max_contour = max(contours, key=cv2.contourArea) if len(contours) > 0 else None
             if borders:
                 # Try to smooth contours
                 contours = [cv2.approxPolyDP(contour, epsilon=0.01, closed=True) for contour in contours]
                 mask_image = cv2.drawContours(mask_image, contours, -1, (0, 255, 0, 0.5), thickness=2)
-            if centroid:
+            if centroid and max_contour is not None:
                 # Calculate image moments of the detected contour
-                moments = cv2.moments(contours[0])
+                moments = cv2.moments(max_contour)
                 try:
                     x_centroid = round(moments['m10'] / moments['m00'])
                     y_centroid = round(moments['m01'] / moments['m00'])
@@ -160,8 +161,10 @@ def show_masks(image, masks):
                 else:
                     print(f"Centroid: {x_centroid}, {y_centroid}")
                     # Draw a marker centered at centroid coordinates
-                    mask_image = cv2.drawMarker(mask_image, (x_centroid, y_centroid),(255, 0, 0, 1), thickness=2, markerSize=100)
-
+                    image = cv2.drawMarker(image, (x_centroid, y_centroid),(255, 0, 0, 1), thickness=1, markerSize=20)
+            if bbox and max_contour is not None:
+                rect = cv2.boundingRect(max_contour)
+                image = cv2.rectangle(image, (rect[0], rect[1]), (rect[0] + rect[2], rect[1] + rect[3]), (0, 0, 0, 1), thickness=1)
         return cv2.addWeighted(image, 1, mask_image, 1, 0)
 
     # if only one result, not enough dimensions
