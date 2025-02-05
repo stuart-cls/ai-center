@@ -134,7 +134,7 @@ class TrackingSAM(SAM2):
 
 def show_masks(image, masks):
 
-    def show_mask(image, mask, random_color=False, borders=True):
+    def show_mask(image, mask, random_color=False, borders=True, centroid=True):
         if random_color:
             rng = numpy.random.default_rng()
             color = rng.integers(0, 255, size=3, dtype=numpy.uint8)
@@ -143,12 +143,26 @@ def show_masks(image, masks):
         h, w = mask.shape[-2:]
         mask = mask.astype(numpy.uint8)
         mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
-        if borders:
+        if borders or centroid:
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-            # Try to smooth contours
-            contours = [cv2.approxPolyDP(contour, epsilon=0.01, closed=True) for contour in contours]
-            mask_image = cv2.drawContours(mask_image, contours, -1, (1, 1, 1, 0.5), thickness=2)
-        return cv2.addWeighted(image, 1, mask_image, 0.5, 0)
+            if borders:
+                # Try to smooth contours
+                contours = [cv2.approxPolyDP(contour, epsilon=0.01, closed=True) for contour in contours]
+                mask_image = cv2.drawContours(mask_image, contours, -1, (0, 255, 0, 0.5), thickness=2)
+            if centroid:
+                # Calculate image moments of the detected contour
+                moments = cv2.moments(contours[0])
+                try:
+                    x_centroid = round(moments['m10'] / moments['m00'])
+                    y_centroid = round(moments['m01'] / moments['m00'])
+                except ZeroDivisionError:
+                    pass
+                else:
+                    print(f"Centroid: {x_centroid}, {y_centroid}")
+                    # Draw a marker centered at centroid coordinates
+                    mask_image = cv2.drawMarker(mask_image, (x_centroid, y_centroid),(255, 0, 0, 1), thickness=2, markerSize=100)
+
+        return cv2.addWeighted(image, 1, mask_image, 1, 0)
 
     # if only one result, not enough dimensions
     masks = numpy.array(masks, ndmin=4, copy=False)
