@@ -10,7 +10,11 @@ import torch
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 
+from aicenter.log import get_module_logger
+
 from .lib.make_sam_v2 import make_samv2_from_original_state_dict
+
+logger = get_module_logger(__name__)
 
 SAM2_MODEL_LARGE = Path("/home/reads/src/segment-anything-2/checkpoints/sam2_hiera_large.pt")
 
@@ -26,7 +30,7 @@ class SAM2:
             self.device = torch.device("cuda")
         else:
             self.device = torch.device("cpu")
-        print(f"using device: {self.device}")
+        logger.debug(f"Using device: {self.device}")
 
         if self.device.type == "cuda":
             # use bfloat16 for the entire notebook
@@ -100,6 +104,7 @@ class TrackingSAM(SAM2):
             self.tracked_objects.append(
                 TrackedObject(prompt_memory_encodings=[init_mem],
                               prompt_object_pointers=[init_ptr]))
+            logger.debug(f"Added new tracked object, {len(self.tracked_objects)} total")
 
     def predict(self, image: numpy.ndarray):
         # Select current object
@@ -111,12 +116,14 @@ class TrackingSAM(SAM2):
             encoded_imgs_list, *astuple(tracked_object),
         )
         t2 = time.perf_counter()
-        print(f"Took {round(1000 * (t2 - t1))} ms")
+        logger.debug(f"Inference took {round(1000 * (t2 - t1))} ms")
 
         # Store object results for future frames
         if obj_score < 0:
-            print("Bad object score! Implies broken tracking!")
-            # Drop tracked object here?
+            logger.debug("Bad object score! Implies broken tracking! Dropping tracked object.")
+            self.tracked_objects.remove(tracked_object)
+            self.init = False
+            return [], []
         tracked_object.prev_memory_encodings.appendleft(mem_enc)
         tracked_object.prev_object_pointers.appendleft(obj_ptr)
 
@@ -159,7 +166,7 @@ def show_masks(image, masks):
                 except ZeroDivisionError:
                     pass
                 else:
-                    print(f"Centroid: {x_centroid}, {y_centroid}")
+                    logger.debug(f"Segmentation mask centroid: {x_centroid}, {y_centroid}")
                     # Draw a marker centered at centroid coordinates
                     image = cv2.drawMarker(image, (x_centroid, y_centroid),(255, 0, 0, 1), thickness=1, markerSize=20)
             if bbox and max_contour is not None:
