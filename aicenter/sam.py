@@ -22,6 +22,7 @@ SAM2_MODEL_LARGE = Path("/home/reads/src/segment-anything-2/checkpoints/sam2_hie
 @dataclass
 class MaskResult(Result):
     mask: numpy.ndarray = None
+    contours: numpy.ndarray = None
 
 class SAM2:
     def __init__(self, model_path: Path=SAM2_MODEL_LARGE):
@@ -62,7 +63,8 @@ class SAM2:
         )
         return masks, scores
 
-    def process_results(self, masks, scores, label):
+    @staticmethod
+    def process_results(masks, scores, label):
         # TODO this should probably return the same type of thing as Net.process_results
         results = []
         # if only one mask result, not enough dimensions
@@ -86,7 +88,7 @@ class SAM2:
                         logger.debug(f"Segmentation mask centroid: {x_centroid}, {y_centroid}")
                     x, y, w, h = cv2.boundingRect(max_contour)
                     logger.debug(f'{label} found at: {x} {y} [{w} {h}], prob={score:.2f}')
-                    results.append(MaskResult(label, x, y, w, h, score, x_centroid, y_centroid, mask))
+                    results.append(MaskResult(label, x, y, w, h, score, x_centroid, y_centroid, mask, contours))
         return results
 
 @dataclass
@@ -173,7 +175,7 @@ class TrackingSAM(SAM2):
 
 def show_masks(image, masks):
 
-    def show_mask(image, mask, random_color=False, borders=True, centroid=True, bbox=True):
+    def show_mask_from_predict(image, mask, random_color=False, borders=True, centroid=True, bbox=True):
         if random_color:
             rng = numpy.random.default_rng()
             color = rng.integers(0, 255, size=3, dtype=numpy.uint8)
@@ -211,5 +213,27 @@ def show_masks(image, masks):
     masks = numpy.array(masks, ndmin=4, copy=False)
     if masks.size:
         for mask in masks:
-            image = show_mask(image, mask.squeeze(0), random_color=False, borders=True)
+            image = show_mask_from_predict(image, mask.squeeze(0), random_color=False, borders=True)
     return image
+
+def show_mask_from_result(image, result: MaskResult, random_color=False, borders=True, centroid=True, bbox=False):
+    if random_color:
+        rng = numpy.random.default_rng()
+        color = rng.integers(0, 255, size=3, dtype=numpy.uint8)
+    else:
+        color = numpy.array([30 / 255, 144 / 255, 255 / 255], dtype=numpy.uint8)
+    mask = result.mask
+    contours = result.contours
+    h, w = mask.shape[-2:]
+    mask = mask.astype(numpy.uint8)
+    mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
+    if borders or centroid or bbox:
+        if borders:
+            # Try to smooth contours
+            contours = [cv2.approxPolyDP(contour, epsilon=0.01, closed=True) for contour in contours]
+            mask_image = cv2.drawContours(mask_image, contours, -1, (0, 255, 0, 0.5), thickness=2)
+        if centroid:
+                image = cv2.drawMarker(image, (result.cx, result.cy),(255, 0, 0, 1), thickness=1, markerSize=20)
+        if bbox:
+            image = cv2.rectangle(image, (result.x, result.y), (result.x + result.w, result.y + result.h), (0, 0, 0, 1), thickness=1)
+    return cv2.addWeighted(image, 1, mask_image, 1, 0)
