@@ -11,7 +11,7 @@ import redis
 
 from aicenter import AiCenter
 from aicenter.log import get_module_logger
-from aicenter.sam import show_masks
+from aicenter.sam import MaskResult, show_mask_from_result
 
 warnings.filterwarnings("ignore")
 logger = get_module_logger("inference")
@@ -37,14 +37,13 @@ class AiCenterApp(AiCenter):
             results = self.process_frame(frame)
 
             if results:
-                for label, reslist in results.items():
-                    for res in reslist:
+                for label, objects in results.items():
+                    for res in objects:
                         cv2.rectangle(frame, (res.x, res.y), (res.x+res.w, res.y+res.h), (255, 0, 0), 1)
                         cv2.putText(frame, f'{res.type}:{res.score:0.2f}', (res.x, res.y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                                     (255, 0, 0), 1, cv2.LINE_AA)
-            if self.sam.init:
-                masks, scores = self.sam.predict(frame)
-                frame = show_masks(frame, masks)
+                        if isinstance(res, MaskResult):
+                            frame = show_mask_from_result(frame, res)
 
             cv2.imshow(os.path.split(self.model_path)[-1], frame)
 
