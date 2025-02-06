@@ -116,7 +116,7 @@ class TrackingSAM(SAM2):
             encoded_imgs_list, *astuple(tracked_object),
         )
         t2 = time.perf_counter()
-        logger.debug(f"Inference took {round(1000 * (t2 - t1))} ms")
+        logger.debug(f"Inference took {round(1000 * (t2 - t1))} ms, score={obj_score[0][0]:.2f}")
 
         # Store object results for future frames
         if obj_score < 0:
@@ -178,5 +178,5 @@ def show_masks(image, masks):
     masks = numpy.array(masks, ndmin=4, copy=False)
     if masks.size:
         for mask in masks:
-            image = show_mask(image, mask.squeeze(0), random_color=False, borders=False)
+            image = show_mask(image, mask.squeeze(0), random_color=False, borders=True)
     return image

@@ -56,7 +56,7 @@ class Net:
             for bbox, score, class_id in nms_boxes:
                 x, y, w, h = bbox
                 label = self.names[class_id]
-                logger.debug(f'{label} found at: {x} {y} [{w} {h}], prob={score}')
+                logger.debug(f'{label} found at: {x} {y} [{w} {h}], prob={score:.2f}')
                 results[label].append(Result(label, x, y, w, h, score))
             for label, llist in results.items():
                 results[label] = sorted(llist, key=lambda result: result.score, reverse=True)

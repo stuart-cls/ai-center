@@ -58,6 +58,13 @@ class AiCenter:
             height, width = frame.shape[:2]
             outputs = self.net.predict(frame)
             results = self.net.process_results(width, height, outputs)
+            for label, objects in results.items():
+                if label == 'loop' and objects and self.sam.predictor:
+                    xyxy = [[r.x, r.y, r.x + r.w, r.y + r.h] for r in objects]
+                    input_boxes = numpy.atleast_2d(numpy.array(xyxy))
+                    norm = numpy.array([width, height, width, height])
+                    self.sam.track_input_boxes(frame, input_boxes, norm)
+
             if not results:
                 # attempt regular image processing
                 results = self.process_features(frame)

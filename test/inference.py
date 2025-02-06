@@ -7,7 +7,6 @@ import time
 import warnings
 
 import cv2
-import numpy
 import redis
 
 from aicenter import AiCenter
@@ -28,7 +27,7 @@ class AiCenterApp(AiCenter):
         if self.server:
             self.video = redis.Redis(host=self.server, port=6379, db=0)
 
-    def run(self, scale=0.5):
+    def run(self, scale=1.0):
         self.running = True
         while self.running:
             raw_frame = self.get_frame()
@@ -37,19 +36,12 @@ class AiCenterApp(AiCenter):
             frame = cv2.resize(raw_frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
             results = self.process_frame(frame)
 
-            if results is not None:
+            if results:
                 for label, reslist in results.items():
                     for res in reslist:
                         cv2.rectangle(frame, (res.x, res.y), (res.x+res.w, res.y+res.h), (255, 0, 0), 1)
                         cv2.putText(frame, f'{res.type}:{res.score:0.2f}', (res.x, res.y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                                     (255, 0, 0), 1, cv2.LINE_AA)
-                    if label == 'crystal':
-                        if reslist and self.sam.predictor:
-                            xyxy = [[r.x, r.y, r.x + r.w, r.y + r.h] for r in reslist]
-                            input_boxes = numpy.atleast_2d(numpy.array(xyxy))
-                            height, width = frame.shape[:2]
-                            norm = numpy.array([width, height, width, height])
-                            self.sam.track_input_boxes(frame, input_boxes, norm)
             if self.sam.init:
                 masks, scores = self.sam.predict(frame)
                 frame = show_masks(frame, masks)
