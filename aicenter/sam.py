@@ -11,12 +11,17 @@ from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 
 from aicenter.log import get_module_logger
+from aicenter.net import Result
 
 from .lib.make_sam_v2 import make_samv2_from_original_state_dict
 
 logger = get_module_logger(__name__)
 
 SAM2_MODEL_LARGE = Path("/home/reads/src/segment-anything-2/checkpoints/sam2_hiera_large.pt")
+
+@dataclass
+class MaskResult(Result):
+    mask: numpy.ndarray = None
 
 class SAM2:
     def __init__(self, model_path: Path=SAM2_MODEL_LARGE):
@@ -57,6 +62,32 @@ class SAM2:
         )
         return masks, scores
 
+    def process_results(self, masks, scores, label):
+        # TODO this should probably return the same type of thing as Net.process_results
+        results = []
+        # if only one mask result, not enough dimensions
+        masks = numpy.array(masks, ndmin=4, copy=False)
+        if masks.size:
+            for mask, score in zip(masks, scores):
+                mask = mask.squeeze(0)
+                score = score.item()
+                contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+                max_contour = max(contours, key=cv2.contourArea) if len(contours) > 0 else None
+                if max_contour is not None:
+                    # Calculate image moments of the detected contour
+                    moments = cv2.moments(max_contour)
+                    try:
+                        x_centroid = round(moments['m10'] / moments['m00'])
+                        y_centroid = round(moments['m01'] / moments['m00'])
+                    except ZeroDivisionError:
+                        x_centroid = None
+                        y_centroid = None
+                    else:
+                        logger.debug(f"Segmentation mask centroid: {x_centroid}, {y_centroid}")
+                    x, y, w, h = cv2.boundingRect(max_contour)
+                    logger.debug(f'{label} found at: {x} {y} [{w} {h}], prob={score:.2f}')
+                    results.append(MaskResult(label, x, y, w, h, score, x_centroid, y_centroid, mask))
+        return results
 
 @dataclass
 class TrackedObject:
@@ -120,6 +151,7 @@ class TrackingSAM(SAM2):
 
         # Store object results for future frames
         if obj_score < 0:
+            # TODO Need to keep object for occlusion support, maybe drop when scores stay low for a long time
             logger.debug("Bad object score! Implies broken tracking! Dropping tracked object.")
             self.tracked_objects.remove(tracked_object)
             self.init = False
@@ -148,6 +180,7 @@ def show_masks(image, masks):
         else:
             color = numpy.array([30 / 255, 144 / 255, 255 / 255], dtype=numpy.uint8)
         h, w = mask.shape[-2:]
+        print(image.shape, mask.shape, mask.reshape(h, w, 1).shape, numpy.atleast_3d(mask).shape)
         mask = mask.astype(numpy.uint8)
         mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
         if borders or centroid or bbox:

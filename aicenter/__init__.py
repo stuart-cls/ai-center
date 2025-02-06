@@ -55,9 +55,11 @@ class AiCenter:
 
     def process_frame(self, frame):
         if frame is not None:
+            # Object detection
             height, width = frame.shape[:2]
             outputs = self.net.predict(frame)
             results = self.net.process_results(width, height, outputs)
+            # Prompt segmentation with objects
             for label, objects in results.items():
                 if label == 'loop' and objects and self.sam.predictor:
                     # Only use the highest-scoring loop as the prompt
@@ -66,8 +68,15 @@ class AiCenter:
                     input_boxes = numpy.atleast_2d(numpy.array(xyxy))
                     norm = numpy.array([width, height, width, height])
                     self.sam.track_input_boxes(frame, input_boxes, norm)
-
+            # Segmentation
+            if self.sam.init:
+                masks, scores = self.sam.predict(frame)
+                mask_results = self.sam.process_results(masks, scores, 'loop')
+                object_results = results['loop']
+                object_results.extend(mask_results)
+                # Keep list sorted by score
+                results['loop'] = sorted(object_results, key=lambda result: result.score, reverse=True)
+            # Image processing fallback
             if not results:
-                # attempt regular image processing
                 results = self.process_features(frame)
             return results
