@@ -60,7 +60,9 @@ class AiCenter:
             results = self.net.process_results(width, height, outputs)
             for label, objects in results.items():
                 if label == 'loop' and objects and self.sam.predictor:
-                    xyxy = [[r.x, r.y, r.x + r.w, r.y + r.h] for r in objects]
+                    # Only use the highest-scoring loop as the prompt
+                    loop = objects[0]
+                    xyxy = [loop.x, loop.y, loop.x + loop.w, loop.y + loop.h]
                     input_boxes = numpy.atleast_2d(numpy.array(xyxy))
                     norm = numpy.array([width, height, width, height])
                     self.sam.track_input_boxes(frame, input_boxes, norm)
