@@ -1,6 +1,10 @@
 import cv2
 import numpy
 
+from aicenter.log import get_module_logger
+from aicenter.net import Result
+
+logger = get_module_logger(__name__)
 
 def find_loop(orig, offset=10, scale=0.5, orientation='left'):
     raw = cv2.flip(orig, 1) if orientation != 'left' else orig
@@ -104,3 +108,19 @@ def find_loop(orig, offset=10, scale=0.5, orientation='left'):
 
     return info
 
+def process_frame(frame):
+    """
+    Process frame using traditional image processing techniques to detect loop
+    :param frame: Frame to process
+    :return: True if loop found
+    """
+    info = find_loop(frame)
+    if 'loop-x' in info:
+        logger.debug(
+            f'Loop found at: {info["loop-x"]} {info["loop-y"]} [{info["loop-width"]} {info["loop-height"]}]'
+        )
+        return {
+            'loop': [
+                Result('img-loop', info['x']-25, info['y']-25, 50, 50, 0.25 + numpy.random.uniform(0, 0.001))
+            ]
+        }
