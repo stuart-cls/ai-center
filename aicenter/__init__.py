@@ -4,17 +4,11 @@ import cv2
 import numpy
 
 from aicenter import utils
+from aicenter.log import get_module_logger
 from aicenter.net import load_model
 from aicenter.sam import TrackingSAM
 
-try:
-    from devioc import log
-except ImportError:
-    import logging
-
-    logger = logging.getLogger('aicenter')
-else:
-    logger = log.get_module_logger('aicenter')
+logger = get_module_logger(__name__)
 
 # Result Type
 Result = namedtuple('Result', 'type x y w h score')

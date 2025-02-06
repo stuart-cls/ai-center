@@ -11,10 +11,11 @@ import numpy
 import redis
 
 from aicenter import AiCenter
+from aicenter.log import get_module_logger
 from aicenter.sam import show_masks
 
 warnings.filterwarnings("ignore")
-logger = logging.getLogger('aicenter')
+logger = get_module_logger("inference")
 
 CONF_THRESH, NMS_THRESH = 0.25, 0.25
 
@@ -22,7 +23,7 @@ CONF_THRESH, NMS_THRESH = 0.25, 0.25
 class AiCenterApp(AiCenter):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        print(f'model={self.model_path!r}, server={self.server!r}, camera={self.key!r}')
+        logger.info(f'model={self.model_path!r}, server={self.server!r}, camera={self.key!r}')
         self.running = False
         if self.server:
             self.video = redis.Redis(host=self.server, port=6379, db=0)
@@ -63,7 +64,7 @@ class AiCenterImagesApp(AiCenterApp):
     def __init__(self, **kwargs):
         images_dir = kwargs.pop('images')
         self.images = self.frame_generator(images_dir)
-        print(f"Simulating stream from {images_dir!r}")
+        logger.info(f"Simulating stream from {images_dir!r}")
         super().__init__(**kwargs)
 
     @staticmethod
@@ -98,7 +99,10 @@ if __name__ == '__main__':
     parser.add_argument('--camera', type=str, help='Redis camera ID',
                         default="0030180F06E5")
     parser.add_argument('--images', type=str, help='Path to directory of images (simulate stream)')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     args = parser.parse_args()
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
     if args.images:
         app = AiCenterImagesApp(model=args.model, images=args.images)
     else:
