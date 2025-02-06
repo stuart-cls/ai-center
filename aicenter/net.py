@@ -1,5 +1,6 @@
 import os.path
-from collections import defaultdict, namedtuple
+from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
 
@@ -11,8 +12,23 @@ from aicenter.log import get_module_logger
 
 logger = get_module_logger(__name__)
 
-# Result Type
-Result = namedtuple('Result', 'type x y w h score')
+
+@dataclass
+class Result:
+    type: str
+    x: int
+    y: int
+    w: int
+    h: int
+    score: float
+    cx: int = None
+    cy: int = None
+
+    def __post_init__(self):
+        if self.cx is None:
+            self.cx = self.x + int(self.w / 2)
+        if self.cy is None:
+            self.cy = self.y + int(self.h / 2)
 
 class Net:
     size = None
