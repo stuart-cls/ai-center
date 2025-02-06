@@ -91,8 +91,8 @@ class AiCenterApp(AiCenter):
                 for label, res_list in results.items():
                     if label == 'loop':
                         continue
-                    xs += [result.x + int(result.w / 2) for result in res_list]
-                    ys += [result.y + int(result.h / 2) for result in res_list]
+                    xs += [result.cx for result in res_list]
+                    ys += [result.cy for result in res_list]
                     scores += [result.score for result in res_list]
                 if xs:
                     self.ioc.objects_x.put(numpy.array(xs))
