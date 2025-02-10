@@ -1,6 +1,7 @@
 import time
-from collections import deque
+from collections import deque, defaultdict
 from dataclasses import dataclass, field, astuple
+from functools import partial
 from pathlib import Path
 
 import cv2
@@ -97,11 +98,16 @@ class TrackedObject:
     prompt_object_pointers: list[torch.Tensor] = field(default_factory=list)
     prev_memory_encodings: deque[torch.Tensor] = field(default_factory=deque)
     prev_object_pointers: deque[torch.Tensor] = field(default_factory=deque)
+    label: str = None
 
     def __post_init__(self):
         # Set max lengths of previous knowledge
         self.prev_memory_encodings = deque([], maxlen=6)
         self.prev_object_pointers = deque([], maxlen=15)
+
+    @property
+    def video_masking_inputs(self):
+        return self.prompt_memory_encodings, self.prompt_object_pointers, self.prev_memory_encodings, self.prev_object_pointers
 
 
 class TrackingSAM(SAM2):
@@ -109,8 +115,8 @@ class TrackingSAM(SAM2):
         super().__init__(model_path)
         self.tracked_objects = []
         # single initial prompt to start
-        self.init = False
-        self.last_input_boxes = deque([], maxlen=10)
+        self.loop = False
+        self.last_input_boxes = defaultdict(partial(deque, maxlen=10))
 
     def setup_predictor(self):
         _, sammodel = make_samv2_from_original_state_dict(str(self.model_path))
@@ -118,26 +124,39 @@ class TrackingSAM(SAM2):
 
         return sammodel
 
-    def track_input_boxes(self, image: numpy.ndarray, input_boxes: numpy.ndarray, norm=None):
-        if not self.init:
-            self.last_input_boxes.appendleft(input_boxes)
-            if (not (len(self.last_input_boxes) == self.last_input_boxes.maxlen) or
-                    not all(numpy.allclose(input_boxes, a, rtol=0.1) for a in self.last_input_boxes)):
-                return
-            self.init = True
-            # TODO multiple boxes
-            if norm is not None:
-                input_boxes = input_boxes / norm
-            input_boxes = input_boxes.reshape(-1, 2, 2)
+    def track_input_boxes(self, image: numpy.ndarray, input_boxes: numpy.ndarray, norm=None, label="default"):
+        last_input_boxes = self.last_input_boxes[label]
+        last_input_boxes.appendleft(input_boxes)
+        if (not (len(last_input_boxes) == last_input_boxes.maxlen) or
+                not all(numpy.allclose(input_boxes, a, rtol=0.1) for a in last_input_boxes)):
+            return
+        if label == 'loop':
+            self.loop = True
+        # TODO multiple boxes
+        if norm is not None:
+            input_boxes = input_boxes / norm
+        input_boxes = input_boxes.reshape(-1, 2, 2)
 
-            init_encoded_img, _, _ = self.predictor.encode_image(image)
-            init_mask, init_mem, init_ptr = self.predictor.initialize_video_masking(
-                init_encoded_img, input_boxes, [], []
-            )
-            self.tracked_objects.append(
-                TrackedObject(prompt_memory_encodings=[init_mem],
-                              prompt_object_pointers=[init_ptr]))
-            logger.debug(f"Added new tracked object, {len(self.tracked_objects)} total")
+        init_encoded_img, _, _ = self.predictor.encode_image(image)
+        init_mask, init_mem, init_ptr = self.predictor.initialize_video_masking(
+            init_encoded_img, input_boxes, [], []
+        )
+        self.tracked_objects.append(
+            TrackedObject(prompt_memory_encodings=[init_mem],
+                          prompt_object_pointers=[init_ptr],
+                          label=label,
+                          ))
+        logger.debug(f"Added new tracked {label} object, {len(self.tracked_objects)} total")
+
+    def track_objects(self, image: numpy.ndarray, results: dict[list[Result]], width, height):
+        norm = numpy.array([width, height, width, height])
+        for label, objects in results.items():
+            if label == 'loop' and objects and self.predictor and not self.loop:
+                # Only use the highest-scoring loop as the prompt
+                loop = objects[0]
+                xyxy = [loop.x, loop.y, loop.x + loop.w, loop.y + loop.h]
+                input_boxes = numpy.atleast_2d(numpy.array(xyxy))
+                self.track_input_boxes(image, input_boxes, norm, label)
 
     def predict(self, image: numpy.ndarray):
         # Select current object
@@ -146,7 +165,7 @@ class TrackingSAM(SAM2):
         t1 = time.perf_counter()
         encoded_imgs_list, _, _ = self.predictor.encode_image(image)
         obj_score, mask_pred, mem_enc, obj_ptr = self.predictor.step_video_masking(
-            encoded_imgs_list, *astuple(tracked_object),
+            encoded_imgs_list, *tracked_object.video_masking_inputs,
         )
         t2 = time.perf_counter()
         logger.debug(f"Inference took {round(1000 * (t2 - t1))} ms, score={obj_score[0][0]:.2f}")
