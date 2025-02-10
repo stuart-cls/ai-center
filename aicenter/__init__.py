@@ -49,13 +49,14 @@ class AiCenter:
                 self.sam.track_objects(frame, results, width, height)
             # Segmentation
             if self.sam.tracked_objects:
-                masks, scores = self.sam.predict(frame)
-                mask_results = self.sam.process_results(masks, scores, 'loop')
+                outputs = self.sam.predict(frame)
+                mask_results = self.sam.process_results(*outputs)
                 if not results:
                     results = defaultdict(list)
-                results['loop'].extend(mask_results)
-                # Keep list sorted by score
-                results['loop'] = sorted(results['loop'], key=lambda result: result.score, reverse=True)
+                for label in mask_results.keys():
+                    results[label].extend(mask_results[label])
+                    # Keep list sorted by score
+                    results[label] = sorted(results[label], key=lambda result: result.score, reverse=True)
             # Image processing fallback
             if not results:
                 results = img.process_frame(frame)
