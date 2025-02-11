@@ -16,8 +16,6 @@ from . import AiCenter
 
 logger = log.get_module_logger('aicenter')
 
-CONF_THRESH, NMS_THRESH = 0.25, 0.25
-
 
 class EnableType(IntEnum):
     DISABLED, ENABLED = range(2)

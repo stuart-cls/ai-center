@@ -19,6 +19,7 @@ class AiCenter:
         self.server = server
         self.video = None
         self.model_path = model
+        conf_thresh = conf_thresh if conf_thresh is not None else CONF_THRESH
 
         # prepare neural network for detection
         self.net = load_model(model, conf_thresh, NMS_THRESH)
@@ -49,8 +50,8 @@ class AiCenter:
                 self.sam.track_objects(frame, results, width, height)
             # Segmentation
             if self.sam.tracked_objects:
-                outputs = self.sam.predict(frame)
-                mask_results = self.sam.process_results(*outputs)
+                mask_outputs = self.sam.predict(frame)
+                mask_results = self.sam.process_results(*mask_outputs)
                 if not results:
                     results = defaultdict(list)
                 for label in mask_results.keys():
