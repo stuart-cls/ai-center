@@ -91,12 +91,12 @@ if __name__ == '__main__':
                         default="0030180F06E5")
     parser.add_argument('--images', type=str, help='Path to directory of images (simulate stream)')
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
-    parser.add_argument('--confidence', type=float, help='Object Detection Confidence Threshold', required=True)
+    parser.add_argument('--confidence', type=float, help='Object Detection Confidence Threshold')
     args = parser.parse_args()
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
     if args.images:
-        app = AiCenterImagesApp(model=args.model, images=args.images, conf_thresh=args.conf)
+        app = AiCenterImagesApp(model=args.model, images=args.images, conf_thresh=args.confidence)
     else:
-        app = AiCenterApp(model=args.model, server=args.server, camera=args.camera, conf_thresh=args.conf)
+        app = AiCenterApp(model=args.model, server=args.server, camera=args.camera, conf_thresh=args.confidence)
     app.run()

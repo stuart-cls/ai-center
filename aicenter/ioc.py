@@ -16,8 +16,6 @@ from . import AiCenter
 
 logger = log.get_module_logger('aicenter')
 
-CONF_THRESH, NMS_THRESH = 0.25, 0.25
-
 
 class StatusType(IntEnum):
     VALID, INVALID = range(2)
