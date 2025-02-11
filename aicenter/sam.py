@@ -1,4 +1,5 @@
 import time
+import uuid
 from collections import deque, defaultdict
 from dataclasses import dataclass, field, astuple
 from functools import partial
@@ -104,6 +105,7 @@ class SAM2:
 
 @dataclass
 class TrackedObject:
+    id: uuid.UUID = field(default_factory=uuid.uuid4)
     prompt_memory_encodings: list[torch.Tensor] = field(default_factory=list)
     prompt_object_pointers: list[torch.Tensor] = field(default_factory=list)
     prev_memory_encodings: deque[torch.Tensor] = field(default_factory=deque)
