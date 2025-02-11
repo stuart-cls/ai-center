@@ -14,14 +14,14 @@ CONF_THRESH, NMS_THRESH = 0.25, 0.25
 
 
 class AiCenter:
-    def __init__(self, model=None, server=None, camera=None):
+    def __init__(self, model=None, server=None, camera=None, conf_thresh=CONF_THRESH):
         self.key = f'{camera}:JPG'
         self.server = server
         self.video = None
         self.model_path = model
 
         # prepare neural network for detection
-        self.net = load_model(model, CONF_THRESH, NMS_THRESH)
+        self.net = load_model(model, conf_thresh, NMS_THRESH)
 
         # setup SAM2 for segmentation
         self.sam = TrackingSAM()

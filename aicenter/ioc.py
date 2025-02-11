@@ -42,9 +42,9 @@ class AiCenterModel(models.Model):
 
 
 class AiCenterApp(AiCenter):
-    def __init__(self, device, model=None, server=None, camera=None):
-        super().__init__(model=model, server=server, camera=camera)
-        logger.info(f'device={device!r}, model={model!r}, server={server!r}, camera={camera!r}')
+    def __init__(self, device, **kwargs):
+        super().__init__(**kwargs)
+        logger.info(f"device={device!r}, model={kwargs['model']!r}, server={kwargs['server']!r}, camera={kwargs['camera']!r}")
         self.running = False
         self.ioc = AiCenterModel(device, callbacks=self)
 
