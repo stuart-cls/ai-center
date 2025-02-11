@@ -192,9 +192,10 @@ class TrackingSAM(SAM2):
             if obj_score < 0:
                 # TODO Need to keep object for occlusion support, maybe drop when scores stay low for a long time
                 logger.debug("Bad object score! Implies broken tracking! Dropping tracked object.")
+                if tracked_object.label == 'loop':
+                    self.loop = False
                 self.tracked_objects.remove(tracked_object)
-                self.init = False
-                return [], []
+                continue
             tracked_object.prev_memory_encodings.appendleft(mem_enc)
             tracked_object.prev_object_pointers.appendleft(obj_ptr)
 
