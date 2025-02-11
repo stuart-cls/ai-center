@@ -11,7 +11,11 @@ import redis
 
 from aicenter import AiCenter
 from aicenter.log import get_module_logger
-from aicenter.sam import MaskResult, show_mask_from_result
+try:
+    from aicenter.sam import MaskResult, show_mask_from_result
+except ModuleNotFoundError:
+    MaskResult = None
+    show_mask_from_result = None
 
 warnings.filterwarnings("ignore")
 logger = get_module_logger("inference")
@@ -42,7 +46,7 @@ class AiCenterApp(AiCenter):
                         cv2.rectangle(frame, (res.x, res.y), (res.x+res.w, res.y+res.h), (255, 0, 0), 1)
                         cv2.putText(frame, f'{res.type}:{res.score:0.2f}', (res.x, res.y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                                     (255, 0, 0), 1, cv2.LINE_AA)
-                        if isinstance(res, MaskResult):
+                        if self.sam and isinstance(res, MaskResult):
                             frame = show_mask_from_result(frame, res)
 
             cv2.imshow(os.path.split(self.model_path)[-1], frame)

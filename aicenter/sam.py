@@ -11,17 +11,17 @@ import numpy
 from aicenter.log import get_module_logger
 from aicenter.net import Result
 
+logger = get_module_logger(__name__)
+
 try:
     import torch
     from sam2.build_sam import build_sam2
     from sam2.sam2_image_predictor import SAM2ImagePredictor
     from .lib.make_sam_v2 import make_samv2_from_original_state_dict
-except ImportError as e:
-    no_sam = e
-else:
-    no_sam = False
+except ModuleNotFoundError as e:
+    logger.error(f"Missing SAM2 import: {e}")
+    raise e
 
-logger = get_module_logger(__name__)
 
 SAM2_MODEL_LARGE = Path("/home/reads/src/segment-anything-2/checkpoints/sam2_hiera_large.pt")
 
@@ -32,10 +32,6 @@ class MaskResult(Result):
 
 class SAM2:
     def __init__(self, model_path: Path=SAM2_MODEL_LARGE):
-        if no_sam:
-            logger.error(f"Missing SAM2 import: {no_sam}")
-            self.predictor = None
-            return
         self.model_path = model_path
         self.setup_device()
         self.predictor = self.setup_predictor()
