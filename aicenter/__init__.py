@@ -6,7 +6,11 @@ import numpy
 from aicenter import img
 from aicenter.log import get_module_logger
 from aicenter.net import load_model, Result
-from aicenter.sam import TrackingSAM
+
+try:
+    from aicenter.sam import TrackingSAM
+except ModuleNotFoundError as e:
+    TrackingSAM = None
 
 logger = get_module_logger(__name__)
 
@@ -25,7 +29,10 @@ class AiCenter:
         self.net = load_model(model, conf_thresh, NMS_THRESH)
 
         # setup SAM2 for segmentation
-        self.sam = TrackingSAM()
+        if TrackingSAM is not None:
+            self.sam = TrackingSAM()
+        else:
+            self.sam = None
 
     def get_frame(self):
         try:
@@ -46,18 +53,19 @@ class AiCenter:
             outputs = self.net.predict(frame)
             results = self.net.process_results(width, height, outputs)
             # Prompt segmentation with objects
-            if results:
-                self.sam.track_objects(frame, results, width, height)
-            # Segmentation
-            if self.sam.tracked_objects:
-                mask_outputs = self.sam.predict(frame)
-                mask_results = self.sam.process_results(*mask_outputs)
-                if not results:
-                    results = defaultdict(list)
-                for label in mask_results.keys():
-                    results[label].extend(mask_results[label])
-                    # Keep list sorted by score
-                    results[label] = sorted(results[label], key=lambda result: result.score, reverse=True)
+            if self.sam:
+                if results:
+                    self.sam.track_objects(frame, results, width, height)
+                # Segmentation
+                if self.sam.tracked_objects:
+                    mask_outputs = self.sam.predict(frame)
+                    mask_results = self.sam.process_results(*mask_outputs)
+                    if not results:
+                        results = defaultdict(list)
+                    for label in mask_results.keys():
+                        results[label].extend(mask_results[label])
+                        # Keep list sorted by score
+                        results[label] = sorted(results[label], key=lambda result: result.score, reverse=True)
             # Image processing fallback
             if not results:
                 results = img.process_frame(frame)
