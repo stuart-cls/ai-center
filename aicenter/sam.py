@@ -122,8 +122,6 @@ class TrackingSAM(SAM2):
     def __init__(self, model_path: Path=SAM2_MODEL_LARGE):
         super().__init__(model_path)
         self.tracked_objects = []
-        # single initial prompt to start
-        self.loop = False
         self.last_input_boxes = defaultdict(partial(deque, maxlen=10))
 
     def setup_predictor(self):
@@ -138,8 +136,7 @@ class TrackingSAM(SAM2):
         if (not (len(last_input_boxes) == last_input_boxes.maxlen) or
                 not all(numpy.allclose(input_boxes, a, rtol=0.1) for a in last_input_boxes)):
             return
-        if label == 'loop':
-            self.loop = True
+
         # TODO multiple boxes
         if norm is not None:
             input_boxes = input_boxes / norm
@@ -160,15 +157,12 @@ class TrackingSAM(SAM2):
         if not self.predictor:
             return
         norm = numpy.array([width, height, width, height])
+        tracked_labels = [t.label for t in self.tracked_objects]
         for label, objects in results.items():
-            if label == 'loop' and objects and not self.loop:
-                # Only use the highest-scoring loop as the prompt
-                loop = objects[0]
-                xyxy = [loop.x, loop.y, loop.x + loop.w, loop.y + loop.h]
-                input_boxes = numpy.atleast_2d(numpy.array(xyxy))
-                self.track_input_boxes(image, input_boxes, norm, label)
-            elif label != 'loop' and objects:
-                xyxy = [[o.x, o.y, o.x + o.w, o.y + o.h] for o in objects]
+            # Only one object per label
+            if label not in tracked_labels and objects:
+                # Take only the best object for each label
+                xyxy = [[o.x, o.y, o.x + o.w, o.y + o.h] for o in objects[:1]]
                 input_boxes = numpy.atleast_2d(numpy.array(xyxy))
                 self.track_input_boxes(image, input_boxes, norm, label)
 
@@ -189,9 +183,8 @@ class TrackingSAM(SAM2):
             # Store object results for future frames
             if obj_score < 0:
                 # TODO Need to keep object for occlusion support, maybe drop when scores stay low for a long time
+                # Suggested handling for occluded objects is to keep tracking them but do not update prev_memory_encodings/object_pointers
                 logger.debug("Bad object score! Implies broken tracking! Dropping tracked object.")
-                if tracked_object.label == 'loop':
-                    self.loop = False
                 self.tracked_objects.remove(tracked_object)
                 continue
             tracked_object.prev_memory_encodings.appendleft(mem_enc)
