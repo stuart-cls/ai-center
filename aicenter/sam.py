@@ -15,8 +15,6 @@ logger = get_module_logger(__name__)
 
 try:
     import torch
-    from sam2.build_sam import build_sam2
-    from sam2.sam2_image_predictor import SAM2ImagePredictor
     from .lib.make_sam_v2 import make_samv2_from_original_state_dict
 except ModuleNotFoundError as e:
     logger.error(f"Missing SAM2 import: {e}")
@@ -53,11 +51,7 @@ class SAM2:
                 torch.backends.cudnn.allow_tf32 = True
 
     def setup_predictor(self):
-        model_cfg = "sam2_hiera_l.yaml"
-
-        sam2_model = build_sam2(model_cfg, self.model_path, device=self.device)
-
-        return SAM2ImagePredictor(sam2_model)
+        pass
 
     def predict_input_boxes(self, image: numpy.ndarray, input_boxes: numpy.ndarray):
         self.predictor.set_image(image)
