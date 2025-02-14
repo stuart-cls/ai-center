@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aicenter"
+version = "2025.3.0"
+license = {text = "MIT AND Apache-2.0"}
+# PEP 639 (not yet in setuptools)
+#license = "MIT AND Apache-2.0"
+#license-files = [
+#    "LICENSE",
+#    "aicenter/lib/LICENSE",
+#]
+authors = [
+    {name = 'Michel Fodje', email = 'michel.fodje@lightsource.ca'},
+    {name = 'Stuart Read', email = 'stuart.read@lightsource.ca'}
+]
+description = 'IOC Application for Auto Centering using Object Detection'
+readme = 'README.md'
+dependencies = [
+    "numpy",
+    "redis",
+    "opencv-python",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+ioc = [
+    "devioc",
+    "gepics",
+    "Twisted",
+]
+test = ["opencv-contrib-python"]
+sam = ["torch"]
+
+[project.urls]
+source = "https://github.com/michel4j/ai-center"
+issues = "https://github.com/michel4j/ai-center/issues"
+
+[dependency-groups]
+test = ["opencv-contrib-python"]
+
+[tool.setuptools]
+script-files = [
+    'bin/ai-center-ioc',
+]
+
+[tool.setuptools.packages.find]
+include = ["aicenter*"]
