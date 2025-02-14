@@ -1,7 +1,8 @@
+import sysconfig
 import time
 import uuid
 from collections import deque, defaultdict
-from dataclasses import dataclass, field, astuple
+from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
 
@@ -20,8 +21,7 @@ except ModuleNotFoundError as e:
     logger.error(f"Missing SAM2 import: {e}")
     raise e
 
-
-SAM2_MODEL_LARGE = Path("/home/reads/src/segment-anything-2/checkpoints/sam2_hiera_large.pt")
+SAM2_MODEL_LARGE = Path(sysconfig.get_path('data')) / "sam_weights/sam2_hiera_large.pt"
 
 @dataclass
 class MaskResult(Result):
@@ -33,6 +33,7 @@ class SAM2:
         self.model_path = model_path
         self.setup_device()
         self.predictor = self.setup_predictor()
+        logger.info(f"Loading sam model from {model_path}")
 
     def setup_device(self):
         # select the device for computation
