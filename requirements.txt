@@ -1,7 +1,0 @@
-devioc
-opencv-python
-gepics
-redis
-numpy
-Twisted
-pyyaml

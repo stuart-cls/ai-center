@@ -14,7 +14,7 @@ etc/
 build/
 dist/
 model/
-/*.egg-info
+*.egg-info
 /*.egg
 
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider
