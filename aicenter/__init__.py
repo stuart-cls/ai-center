@@ -10,6 +10,7 @@ try:
     from devioc import log
 except ImportError:
     import logging
+
     logger = logging.getLogger('aicenter')
 else:
     logger = log.get_module_logger('aicenter')
@@ -17,7 +18,7 @@ else:
 # Result Type
 Result = namedtuple('Result', 'type x y w h score')
 
-CONF_THRESH, NMS_THRESH = 0.25, 0.25
+CONF_THRESH, NMS_THRESH = 0.125, 0.25
 
 
 class AiCenter:
@@ -96,7 +97,11 @@ class AiCenter:
             logger.debug(
                 f'Loop found at: {info["loop-x"]} {info["loop-y"]} [{info["loop-width"]} {info["loop-height"]}]'
             )
-            return {'loop': [Result('loop', info['loop-x'], info['loop-y'], info['loop-width'], info['loop-height'], 0.5)]}
+            return {
+                'loop': [
+                    Result('img-loop', info['x']-25, info['y']-25, 50, 50, 0.25 + numpy.random.uniform(0, 0.001))
+                ]
+            }
 
     def process_frame(self, frame):
         if frame is not None:

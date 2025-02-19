@@ -74,7 +74,8 @@ class AiCenterApp(AiCenter):
                     self.ioc.label.put(result.type)
                     self.ioc.score.put(result.score)
                     self.ioc.status.put(StatusType.VALID)
-                xs = [], ys = [], scores = []
+
+                xs, ys, scores = [], [], []
                 for label, res_list in results.items():
                     if label == 'loop':
                         continue
@@ -90,7 +91,7 @@ class AiCenterApp(AiCenter):
                     self.ioc.objects_valid.put(0)
             else:
                 self.ioc.status.put(StatusType.INVALID)
-                self.ioc.score.put(0.0)
+                self.ioc.score.put(numpy.random.uniform(0, 0.01))
             time.sleep(0.001)
 
     def shutdown(self):
