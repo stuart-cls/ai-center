@@ -11,6 +11,7 @@ class Net:
     size = None
     net = None
     names = None
+
     def __init__(self, model_path, conf_thres):
         self.model_path = model_path
         self.conf_thres = conf_thres
@@ -18,8 +19,10 @@ class Net:
     def parse_output(self, output, width, height) -> Iterator[tuple[list[int], float, int]]:
         raise NotImplementedError
 
+
 class DarkNet(Net):
     size = 416
+
     def __init__(self, model_path, conf_thres):
         super().__init__(model_path, conf_thres)
         with open(os.path.join(model_path, 'yolov3.names'), 'r', encoding='utf-8') as fobj:
@@ -42,8 +45,10 @@ class DarkNet(Net):
 
                 yield [x, y, int(w), int(h)], float(confidence), int(class_id)
 
+
 class ONNXNet(Net):
     size = 640
+
     def __init__(self, model_path, conf_thres):
         super().__init__(model_path, conf_thres)
         self.model_path = Path(model_path)
@@ -67,6 +72,7 @@ class ONNXNet(Net):
                 y = int(cy - h / 2)
 
                 yield [x, y, int(w), int(h)], float(confidence), int(class_id)
+
 
 def load_model(model_path: str or Path, conf_thres: float) -> Net:
     for n in [DarkNet, ONNXNet]:
