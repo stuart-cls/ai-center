@@ -4,3 +4,4 @@ gepics
 redis
 numpy
 Twisted
+pyyaml
