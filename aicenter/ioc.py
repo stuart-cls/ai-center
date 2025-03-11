@@ -19,6 +19,10 @@ logger = log.get_module_logger('aicenter')
 CONF_THRESH, NMS_THRESH = 0.25, 0.25
 
 
+class EnableType(IntEnum):
+    DISABLED, ENABLED = range(2)
+
+
 class StatusType(IntEnum):
     VALID, INVALID = range(2)
 
@@ -33,6 +37,8 @@ class AiCenterModel(models.Model):
     score = models.Float('score', default=0.0, desc='Reliability')
     label = models.String('label', default='', desc='Object Type')
     status = models.Enum('status', choices=StatusType, desc="Status")
+    enable = models.Enum('enable', choices=EnableType, default=1, desc="Enable/Disable")
+
     # Many-object centers
     objects_x = models.Array('objects:x', type=int, desc="Objects X")
     objects_y = models.Array('objects:y', type=int, desc="Objects Y")
@@ -46,6 +52,7 @@ class AiCenterApp(AiCenter):
         super().__init__(model=model, server=server, camera=camera)
         logger.info(f'device={device!r}, model={model!r}, server={server!r}, camera={camera!r}')
         self.running = False
+        self.enabled = True
         self.ioc = AiCenterModel(device, callbacks=self)
 
         self.start_monitor()
@@ -60,6 +67,11 @@ class AiCenterApp(AiCenter):
         self.running = True
         self.video = redis.Redis(host=self.server, port=6379, db=0)
         while self.running:
+
+            if not self.enabled:
+                time.sleep(0.1)
+                continue
+
             frame = self.get_frame()
             results = self.process_frame(frame)
 
@@ -93,6 +105,9 @@ class AiCenterApp(AiCenter):
                 self.ioc.status.put(StatusType.INVALID)
                 self.ioc.score.put(numpy.random.uniform(0, 0.01))
             time.sleep(0.001)
+
+    def do_enable(self, pv, value, ioc):
+        self.enabled = (value == EnableType.ENABLED)
 
     def shutdown(self):
         # needed for proper IOC shutdown
